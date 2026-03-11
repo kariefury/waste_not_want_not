@@ -27,6 +27,7 @@ class PantryItem {
     required this.quantity,
     this.unit = '',
     this.notes = '',
+    this.photoPath,
     this.expiresBy,
     required this.contributorAlias,
     required this.pickupAddress,
@@ -44,13 +45,14 @@ class PantryItem {
   final int quantity;
   final String unit;
   final String notes;
+  final String? photoPath;             // local file path to item photo
   final DateTime? expiresBy;
-  final String contributorAlias;   // no real names required
+  final String contributorAlias;       // no real names required
   final String pickupAddress;
   final String pickupInstructions;
   final double latitude;
   final double longitude;
-  final double radiusKm;           // how far this is visible
+  final double radiusKm;               // how far this is visible
   final DateTime createdAt;
 
   /// Distance text for display — computed externally and attached.
@@ -63,6 +65,7 @@ class PantryItem {
         'quantity': quantity,
         'unit': unit,
         'notes': notes,
+        'photoPath': photoPath,
         'expiresBy': expiresBy?.toIso8601String(),
         'contributorAlias': contributorAlias,
         'pickupAddress': pickupAddress,
@@ -80,6 +83,7 @@ class PantryItem {
         quantity: json['quantity'],
         unit: json['unit'] ?? '',
         notes: json['notes'] ?? '',
+        photoPath: json['photoPath'],
         expiresBy: json['expiresBy'] != null
             ? DateTime.parse(json['expiresBy'])
             : null,

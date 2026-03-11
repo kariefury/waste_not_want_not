@@ -30,15 +30,11 @@ class LocationService {
     if (permission == LocationPermission.deniedForever) {
       throw LocationException(
         'Location permissions are permanently denied. '
-            'Please enable them in Settings.',
+        'Please enable them in Settings.',
       );
     }
 
-    return Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.low, // neighbourhood-level is enough
-      ),
-    );
+    return Geolocator.getCurrentPosition();
   }
 
   /// Snap a coordinate to the privacy grid so exact locations
@@ -51,16 +47,16 @@ class LocationService {
     final double lngStep = _gridSizeKm / kmPerDegreeLng;
 
     return (
-    lat: (lat / latStep).roundToDouble() * latStep,
-    lng: (lng / lngStep).roundToDouble() * lngStep,
+      lat: (lat / latStep).roundToDouble() * latStep,
+      lng: (lng / lngStep).roundToDouble() * lngStep,
     );
   }
 
   /// Haversine distance in kilometres.
   static double distanceKm(
-      double lat1, double lng1,
-      double lat2, double lng2,
-      ) {
+    double lat1, double lng1,
+    double lat2, double lng2,
+  ) {
     const R = 6371.0; // earth radius km
     final dLat = _rad(lat2 - lat1);
     final dLng = _rad(lng2 - lng1);

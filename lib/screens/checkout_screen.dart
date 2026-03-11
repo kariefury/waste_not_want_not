@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../models/pantry_item.dart';
@@ -153,15 +154,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       child: Row(
                         children: [
                           Container(
-                            width: 44,
-                            height: 44,
+                            width: 48,
+                            height: 48,
                             decoration: BoxDecoration(
                               color: AppTheme.paleOlive,
                               borderRadius: BorderRadius.circular(12),
+                              image: ci.pantryItem.photoPath != null &&
+                                      File(ci.pantryItem.photoPath!).existsSync()
+                                  ? DecorationImage(
+                                      image: FileImage(
+                                          File(ci.pantryItem.photoPath!)),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
                             ),
                             alignment: Alignment.center,
-                            child: Text(ci.pantryItem.category.emoji,
-                                style: const TextStyle(fontSize: 22)),
+                            child: ci.pantryItem.photoPath == null ||
+                                    !File(ci.pantryItem.photoPath!).existsSync()
+                                ? Text(ci.pantryItem.category.emoji,
+                                    style: const TextStyle(fontSize: 22))
+                                : null,
                           ),
                           const SizedBox(width: 12),
                           Expanded(

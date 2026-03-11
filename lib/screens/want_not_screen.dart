@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
@@ -324,19 +325,27 @@ class _ItemCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              // Emoji badge
+              // Photo or emoji badge
               Container(
-                width: 52,
-                height: 52,
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
                   color: inCart
                       ? AppTheme.seedGreen.withOpacity(0.15)
                       : AppTheme.cloudWhite,
                   borderRadius: BorderRadius.circular(14),
+                  image: item.photoPath != null && File(item.photoPath!).existsSync()
+                      ? DecorationImage(
+                          image: FileImage(File(item.photoPath!)),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
                 alignment: Alignment.center,
-                child: Text(item.category.emoji,
-                    style: const TextStyle(fontSize: 26)),
+                child: item.photoPath == null || !File(item.photoPath!).existsSync()
+                    ? Text(item.category.emoji,
+                        style: const TextStyle(fontSize: 26))
+                    : null,
               ),
               const SizedBox(width: 14),
 

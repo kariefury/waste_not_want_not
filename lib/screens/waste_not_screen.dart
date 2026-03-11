@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/pantry_item.dart';
 import '../services/local_data_service.dart';
 import '../services/location_service.dart';
@@ -30,7 +33,7 @@ class _WasteNotScreenState extends State<WasteNotScreen> {
     try {
       final pos = await LocationService.getCurrentPosition();
       final name =
-      await LocationService.getNeighbourhoodName(pos.latitude, pos.longitude);
+          await LocationService.getNeighbourhoodName(pos.latitude, pos.longitude);
       if (mounted) setState(() => _neighbourhood = name);
     } catch (_) {}
     if (mounted) setState(() { _myItems = items; _loading = false; });
@@ -91,8 +94,8 @@ class _WasteNotScreenState extends State<WasteNotScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _myItems.isEmpty
-          ? _emptyState()
-          : _itemList(),
+              ? _emptyState()
+              : _itemList(),
     );
   }
 
@@ -122,8 +125,8 @@ class _WasteNotScreenState extends State<WasteNotScreen> {
             Text(
               'Tap "Add item" to share extra food\nwith your neighbours.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.deepBrown.withOpacity(0.6),
-              ),
+                    color: AppTheme.deepBrown.withOpacity(0.6),
+                  ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -145,8 +148,8 @@ class _WasteNotScreenState extends State<WasteNotScreen> {
                   ? 'Sharing in $_neighbourhood'
                   : 'Your contributions',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppTheme.deepBrown.withOpacity(0.5),
-              ),
+                    color: AppTheme.deepBrown.withOpacity(0.5),
+                  ),
             ),
           );
         }
@@ -178,17 +181,25 @@ class _ContributionTile extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            // Category emoji
+            // Photo or category emoji
             Container(
-              width: 48,
-              height: 48,
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
                 color: AppTheme.paleOlive,
                 borderRadius: BorderRadius.circular(14),
+                image: item.photoPath != null && File(item.photoPath!).existsSync()
+                    ? DecorationImage(
+                        image: FileImage(File(item.photoPath!)),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
               ),
               alignment: Alignment.center,
-              child: Text(item.category.emoji,
-                  style: const TextStyle(fontSize: 24)),
+              child: item.photoPath == null || !File(item.photoPath!).existsSync()
+                  ? Text(item.category.emoji,
+                      style: const TextStyle(fontSize: 24))
+                  : null,
             ),
             const SizedBox(width: 14),
 
@@ -203,17 +214,17 @@ class _ContributionTile extends StatelessWidget {
                   Text(
                     '${item.quantity} ${item.unit}  ·  ${item.category.label}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.deepBrown.withOpacity(0.6),
-                    ),
+                          color: AppTheme.deepBrown.withOpacity(0.6),
+                        ),
                   ),
                   if (item.expiresBy != null) ...[
                     const SizedBox(height: 2),
                     Text(
                       'Expires ${DateFormat.MMMd().format(item.expiresBy!)}',
                       style:
-                      Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppTheme.terracotta,
-                      ),
+                          Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: AppTheme.terracotta,
+                              ),
                     ),
                   ],
                 ],
@@ -261,6 +272,8 @@ class _AddItemSheetState extends State<_AddItemSheet> {
   bool _locating = true;
   String? _locationError;
   bool _skipLocation = false;
+  File? _photo;
+  final _picker = ImagePicker();
 
   @override
   void initState() {
@@ -299,6 +312,103 @@ class _AddItemSheetState extends State<_AddItemSheet> {
     if (date != null && mounted) setState(() => _expiresBy = date);
   }
 
+  Future<void> _pickPhoto(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 80,
+      );
+      if (picked == null) return;
+
+      // Copy to app's permanent storage so the photo survives
+      final appDir = await getApplicationDocumentsDirectory();
+      final photoDir = Directory('${appDir.path}/photos');
+      if (!await photoDir.exists()) await photoDir.create(recursive: true);
+      final savedPath = '${photoDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final savedFile = await File(picked.path).copy(savedPath);
+
+      if (mounted) setState(() => _photo = savedFile);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not get photo: $e')),
+        );
+      }
+    }
+  }
+
+  void _showPhotoOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.seedGreen.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded,
+                      color: AppTheme.seedGreen),
+                ),
+                title: const Text('Take a photo'),
+                subtitle: const Text('Use your camera'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickPhoto(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.terracotta.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.photo_library_rounded,
+                      color: AppTheme.terracotta),
+                ),
+                title: const Text('Choose from gallery'),
+                subtitle: const Text('Pick an existing photo'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickPhoto(ImageSource.gallery);
+                },
+              ),
+              if (_photo != null)
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.delete_outline_rounded,
+                        color: Colors.red.shade400),
+                  ),
+                  title: const Text('Remove photo'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _photo = null);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_position == null && !_skipLocation) {
@@ -324,9 +434,10 @@ class _AddItemSheetState extends State<_AddItemSheet> {
       quantity: int.tryParse(_qtyCtrl.text.trim()) ?? 1,
       unit: _unitCtrl.text.trim(),
       notes: _notesCtrl.text.trim(),
+      photoPath: _photo?.path,
       expiresBy: _expiresBy,
       contributorAlias:
-      _aliasCtrl.text.trim().isEmpty ? 'A neighbour' : _aliasCtrl.text.trim(),
+          _aliasCtrl.text.trim().isEmpty ? 'A neighbour' : _aliasCtrl.text.trim(),
       pickupAddress: _addressCtrl.text.trim(),
       pickupInstructions: _instructionsCtrl.text.trim(),
       latitude: snapped.lat,
@@ -357,6 +468,98 @@ class _AddItemSheetState extends State<_AddItemSheet> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            // ── Section: Photo ──────────────────────────────────
+            GestureDetector(
+              onTap: _showPhotoOptions,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: double.infinity,
+                height: _photo != null ? 220 : 140,
+                decoration: BoxDecoration(
+                  color: AppTheme.warmCream,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: _photo != null
+                        ? AppTheme.seedGreen.withOpacity(0.3)
+                        : AppTheme.deepBrown.withOpacity(0.1),
+                    width: 1.5,
+                  ),
+                  image: _photo != null
+                      ? DecorationImage(
+                          image: FileImage(_photo!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: _photo != null
+                    // Photo overlay with change button
+                    ? Stack(
+                        children: [
+                          Positioned(
+                            bottom: 10,
+                            right: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.camera_alt_rounded,
+                                      size: 14, color: Colors.white),
+                                  SizedBox(width: 6),
+                                  Text('Change',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    // Empty state
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppTheme.seedGreen.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.camera_alt_rounded,
+                                size: 28, color: AppTheme.seedGreen),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Add a photo of your item',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(color: AppTheme.seedGreen),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Helps neighbours know what to expect',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: AppTheme.deepBrown.withOpacity(0.4),
+                                  fontSize: 13,
+                                ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
             // ── Section: What ───────────────────────────────────
             _sectionTitle('What are you sharing?'),
             const SizedBox(height: 10),
@@ -364,7 +567,7 @@ class _AddItemSheetState extends State<_AddItemSheet> {
               controller: _nameCtrl,
               decoration: const InputDecoration(hintText: 'e.g. Organic bananas'),
               validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Enter a name' : null,
+                  (v == null || v.trim().isEmpty) ? 'Enter a name' : null,
             ),
             const SizedBox(height: 12),
 
@@ -382,7 +585,7 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                   labelStyle: TextStyle(
                     color: selected ? Colors.white : AppTheme.deepBrown,
                     fontWeight:
-                    selected ? FontWeight.w600 : FontWeight.w400,
+                        selected ? FontWeight.w600 : FontWeight.w400,
                   ),
                 );
               }).toList(),
@@ -410,7 +613,7 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                   child: TextFormField(
                     controller: _unitCtrl,
                     decoration:
-                    const InputDecoration(hintText: 'Unit (cans, kg, …)'),
+                        const InputDecoration(hintText: 'Unit (cans, kg, …)'),
                   ),
                 ),
               ],
@@ -423,7 +626,7 @@ class _AddItemSheetState extends State<_AddItemSheet> {
               borderRadius: BorderRadius.circular(14),
               child: Container(
                 padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 decoration: BoxDecoration(
                   color: AppTheme.warmCream,
                   borderRadius: BorderRadius.circular(14),
@@ -439,10 +642,10 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                           ? 'Expires ${DateFormat.yMMMd().format(_expiresBy!)}'
                           : 'Add expiry date (optional)',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: _expiresBy != null
-                            ? AppTheme.deepBrown
-                            : AppTheme.deepBrown.withOpacity(0.4),
-                      ),
+                            color: _expiresBy != null
+                                ? AppTheme.deepBrown
+                                : AppTheme.deepBrown.withOpacity(0.4),
+                          ),
                     ),
                   ],
                 ),
@@ -454,7 +657,7 @@ class _AddItemSheetState extends State<_AddItemSheet> {
               controller: _notesCtrl,
               maxLines: 2,
               decoration:
-              const InputDecoration(hintText: 'Notes (optional)'),
+                  const InputDecoration(hintText: 'Notes (optional)'),
             ),
 
             const SizedBox(height: 28),
@@ -465,14 +668,14 @@ class _AddItemSheetState extends State<_AddItemSheet> {
             Text(
               'No real names needed — keep it fun & anonymous.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.deepBrown.withOpacity(0.5),
-              ),
+                    color: AppTheme.deepBrown.withOpacity(0.5),
+                  ),
             ),
             const SizedBox(height: 10),
             TextFormField(
               controller: _aliasCtrl,
               decoration:
-              const InputDecoration(hintText: 'e.g. Baker on 5th'),
+                  const InputDecoration(hintText: 'e.g. Baker on 5th'),
             ),
 
             const SizedBox(height: 28),
@@ -483,14 +686,14 @@ class _AddItemSheetState extends State<_AddItemSheet> {
             Text(
               'Only shown to people who claim your item.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.deepBrown.withOpacity(0.5),
-              ),
+                    color: AppTheme.deepBrown.withOpacity(0.5),
+                  ),
             ),
             const SizedBox(height: 10),
             TextFormField(
               controller: _addressCtrl,
               decoration:
-              const InputDecoration(hintText: 'Pickup address'),
+                  const InputDecoration(hintText: 'Pickup address'),
               validator: (v) => (v == null || v.trim().isEmpty)
                   ? 'Enter an address'
                   : null,
@@ -511,8 +714,8 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                 const Spacer(),
                 Text('${_radiusKm.toStringAsFixed(1)} km',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppTheme.seedGreen,
-                    )),
+                          color: AppTheme.seedGreen,
+                        )),
               ],
             ),
             Slider(
@@ -561,97 +764,97 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                 ),
               )
             else if (_skipLocation)
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppTheme.honeyGold.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline_rounded,
-                          size: 18, color: AppTheme.honeyGold),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Sharing without location — item will be visible to everyone.',
-                          style: TextStyle(
-                              color: AppTheme.deepBrown.withOpacity(0.7),
-                              fontSize: 13),
-                        ),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.honeyGold.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded,
+                        size: 18, color: AppTheme.honeyGold),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Sharing without location — item will be visible to everyone.',
+                        style: TextStyle(
+                            color: AppTheme.deepBrown.withOpacity(0.7),
+                            fontSize: 13),
                       ),
-                    ],
-                  ),
-                )
-              else if (_locationError != null)
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppTheme.terracotta.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                          color: AppTheme.terracotta.withOpacity(0.3)),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  ],
+                ),
+              )
+            else if (_locationError != null)
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.terracotta.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppTheme.terracotta.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            Icon(Icons.location_off_rounded,
-                                size: 18, color: AppTheme.terracotta),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'Could not get location',
-                                style: TextStyle(
-                                  color: AppTheme.terracotta,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                        Icon(Icons.location_off_rounded,
+                            size: 18, color: AppTheme.terracotta),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Could not get location',
+                            style: TextStyle(
+                              color: AppTheme.terracotta,
+                              fontWeight: FontWeight.w600,
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '$_locationError',
-                          style: TextStyle(
-                            color: AppTheme.deepBrown.withOpacity(0.5),
-                            fontSize: 12,
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _initLocation,
-                                icon: const Icon(Icons.refresh_rounded, size: 16),
-                                label: const Text('Retry'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppTheme.seedGreen,
-                                  side: BorderSide(color: AppTheme.seedGreen),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () =>
-                                    setState(() => _skipLocation = true),
-                                icon: const Icon(Icons.skip_next_rounded, size: 16),
-                                label: const Text('Skip location'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppTheme.deepBrown.withOpacity(0.6),
-                                  side: BorderSide(
-                                      color: AppTheme.deepBrown.withOpacity(0.2)),
-                                ),
-                              ),
-                            ),
-                          ],
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '$_locationError',
+                      style: TextStyle(
+                        color: AppTheme.deepBrown.withOpacity(0.5),
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _initLocation,
+                            icon: const Icon(Icons.refresh_rounded, size: 16),
+                            label: const Text('Retry'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.seedGreen,
+                              side: BorderSide(color: AppTheme.seedGreen),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () =>
+                                setState(() => _skipLocation = true),
+                            icon: const Icon(Icons.skip_next_rounded, size: 16),
+                            label: const Text('Skip location'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.deepBrown.withOpacity(0.6),
+                              side: BorderSide(
+                                  color: AppTheme.deepBrown.withOpacity(0.2)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
 
             const SizedBox(height: 40),
           ],

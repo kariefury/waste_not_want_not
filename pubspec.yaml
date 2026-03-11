@@ -17,11 +17,28 @@ dependencies:
   intl: ^0.19.0
   flutter_animate: ^4.3.0
   google_fonts: ^6.1.0
+  image_picker: ^1.0.7
+  path_provider: ^2.1.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.1
+  flutter_launcher_icons: ^0.14.3
+
+# ── App icon configuration ───────────────────────────────────────
+# Place your icon at assets/images/app_icon.png (1024x1024 recommended)
+# Then run:  dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#4A6741"
+  adaptive_icon_foreground: "assets/icon.png"
+  web:
+    generate: true
+    image_path: "assets/icon.png"
 
 flutter:
   uses-material-design: true
